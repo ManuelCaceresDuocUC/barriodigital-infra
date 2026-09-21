@@ -1,0 +1,31 @@
+{
+  "rabbit_version": "3.13.0",
+  "vhosts": [{ "name": "/" }],
+  "users": [
+    { "name": "guest", "password_hash": "BM3fkO32iRIn5aJ3f6cW74u8gG8=", "tags": ["administrator"] }
+  ],
+  "permissions": [
+    { "user": "guest", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*" }
+  ],
+  "exchanges": [
+    { "name": "dlx.exchange", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "arguments": {} },
+    { "name": "requests.direct.exchange", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "arguments": {} },
+    { "name": "events.topic.exchange", "vhost": "/", "type": "topic", "durable": true, "auto_delete": false, "arguments": {} }
+  ],
+  "queues": [
+    { "name": "dlx.queue", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
+    { "name": "requests.process.queue", "vhost": "/", "durable": true, "auto_delete": false, "arguments": { "x-dead-letter-exchange": "dlx.exchange", "x-dead-letter-routing-key": "dead-letter" } },
+    { "name": "requests.audit.queue", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
+    { "name": "notifications.topic.queue", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
+    { "name": "reports.topic.queue", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
+    { "name": "analytics.topic.queue", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} }
+  ],
+  "bindings": [
+    { "source": "dlx.exchange", "vhost": "/", "destination": "dlx.queue", "destination_type": "queue", "routing_key": "dead-letter", "arguments": {} },
+    { "source": "requests.direct.exchange", "vhost": "/", "destination": "requests.process.queue", "destination_type": "queue", "routing_key": "request.process", "arguments": {} },
+    { "source": "requests.direct.exchange", "vhost": "/", "destination": "requests.audit.queue", "destination_type": "queue", "routing_key": "request.audit", "arguments": {} },
+    { "source": "events.topic.exchange", "vhost": "/", "destination": "notifications.topic.queue", "destination_type": "queue", "routing_key": "notification.#", "arguments": {} },
+    { "source": "events.topic.exchange", "vhost": "/", "destination": "reports.topic.queue", "destination_type": "queue", "routing_key": "report.#", "arguments": {} },
+    { "source": "events.topic.exchange", "vhost": "/", "destination": "analytics.topic.queue", "destination_type": "queue", "routing_key": "#.metric", "arguments": {} }
+  ]
+}
