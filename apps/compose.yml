@@ -1,18 +1,106 @@
-version: '3.8'
+name: barriodigital
+
+x-entorno-jwt: &entorno-jwt
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://login.microsoftonline.com/${AZURE_TENANT_ID:?Falta AZURE_TENANT_ID en apps/.env}/v2.0
+
+x-entorno-db: &entorno-db
+  SPRING_DATASOURCE_URL: jdbc:oracle:thin:@oracle-db:1521/FREEPDB1
+  SPRING_DATASOURCE_USERNAME: ${DB_USER:?Falta DB_USER en apps/.env}
+  SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en apps/.env}
+
+x-servicio-java: &servicio-java
+  restart: unless-stopped
+  networks:
+    - barriodigital-net
+
+networks:
+  barriodigital-net:
+    driver: bridge
+
+volumes:
+  oracle-data:
 
 services:
   oracle-db:
-    image: gvenzl/oracle-free:23-slim
-    container_name: barriodigital-oracle
-    ports:
-      - "1521:1521"
+    # Fijada por digest: es la misma imagen que corre hoy en la EC2 (Oracle 23.26.3)
+    image: gvenzl/oracle-free@sha256:6d61d267a3b978c24c5ac1790e62e927416a0aec446bd86e4b3a1527562757bd
+    container_name: oracle-db
+    restart: unless-stopped
     environment:
-      - ORACLE_PASSWORD=TuPasswordSegura123
-      - APP_USER=barriodigital
-      - APP_USER_PASSWORD=barriodigital
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:?Falta ORACLE_PASSWORD en apps/.env}
+      APP_USER: ${DB_USER:?Falta DB_USER en apps/.env}
+      APP_USER_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en apps/.env}
     volumes:
-      - oracle_data:/opt/oracle/oradata
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+      start_period: 90s
+    networks:
+      - barriodigital-net
 
-volumes:
-  oracle_data:
-#hola
+  # Único servicio expuesto al exterior (API Gateway apunta a este puerto)
+  ms-barriodigital-bff:
+    <<: *servicio-java
+    build: ../../ms-barriodigital-bff
+    container_name: ms-barriodigital-bff
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *entorno-jwt
+      SERVER_PORT: "8080"
+      REQUESTS_SERVICE_URL: http://ms-barriodigital-requests:8081
+      CATALOG_SERVICE_URL: http://ms-barriodigital-catalog:8082
+      REPORT_SERVICE_URL: http://ms-barriodigital-report:8084
+      AUDIT_SERVICE_URL: http://ms-barriodigital-audit:8085
+
+  ms-barriodigital-requests:
+    <<: *servicio-java
+    build: ../../ms-barriodigital-requests
+    container_name: ms-barriodigital-requests
+    environment:
+      <<: [*entorno-jwt, *entorno-db]
+      SERVER_PORT: "8081"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+
+  ms-barriodigital-catalog:
+    <<: *servicio-java
+    build: ../../ms-barriodigital-catalog
+    container_name: ms-barriodigital-catalog
+    environment:
+      <<: [*entorno-jwt, *entorno-db]
+      SERVER_PORT: "8082"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+
+  # Consumidores de Kafka: no arrancan hasta que exista el broker.
+  # Activar con: docker compose --profile kafka up -d
+  # Pendiente: agregar las variables de conexión a Kafka al desplegarlo.
+  ms-barriodigital-report:
+    <<: *servicio-java
+    profiles: ["kafka"]
+    build: ../../ms-barriodigital-report
+    container_name: ms-barriodigital-report
+    environment:
+      <<: [*entorno-jwt, *entorno-db]
+      SERVER_PORT: "8084"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+
+  ms-barriodigital-audit:
+    <<: *servicio-java
+    profiles: ["kafka"]
+    build: ../../ms-barriodigital-audit
+    container_name: ms-barriodigital-audit
+    environment:
+      <<: [*entorno-jwt, *entorno-db]
+      SERVER_PORT: "8085"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
