@@ -63,6 +63,7 @@ services:
     environment:
       <<: [*entorno-jwt, *entorno-db]
       SERVER_PORT: "8081"
+      CATALOG_SERVICE_URL: http://ms-barriodigital-catalog:8082
     depends_on:
       oracle-db:
         condition: service_healthy
