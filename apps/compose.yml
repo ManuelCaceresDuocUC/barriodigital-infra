@@ -8,6 +8,12 @@ x-entorno-db: &entorno-db
   SPRING_DATASOURCE_USERNAME: ${DB_USER:?Falta DB_USER en apps/.env}
   SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en apps/.env}
 
+x-entorno-rabbit: &entorno-rabbit
+  RABBITMQ_HOST: ${RABBITMQ_HOST:?Falta RABBITMQ_HOST en apps/.env}
+  RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+  RABBITMQ_USER: ${RABBITMQ_USER:?Falta RABBITMQ_USER en apps/.env}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Falta RABBITMQ_PASSWORD en apps/.env}
+
 x-servicio-java: &servicio-java
   restart: unless-stopped
   networks:
@@ -78,6 +84,14 @@ services:
     depends_on:
       oracle-db:
         condition: service_healthy
+
+  ms-barriodigital-notify:
+    <<: *servicio-java
+    build: ../../ms-barriodigital-notify
+    container_name: ms-barriodigital-notify
+    environment:
+      <<: *entorno-rabbit
+      SERVER_PORT: "8083"
 
   # Consumidores de Kafka: no arrancan hasta que exista el broker.
   # Activar con: docker compose --profile kafka up -d

@@ -53,3 +53,4 @@ espejo no estuviera sincronizado, podrían perderse mensajes; con `ha-sync-mode:
 4. `docker start rabbitmq1` y `docker exec rabbitmq1 rabbitmqctl cluster_status`: ambos nodos en *Running Nodes*.
 5. Repetir deteniendo el otro nodo (que ahora es el maestro).
 6. Reinicio completo: `docker restart rabbitmq1 rabbitmq2`; el clúster debe recomponerse solo.
+
