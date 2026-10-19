@@ -3,26 +3,37 @@ networks:
     name: barrio-network
     driver: bridge
 
+volumes:
+  rabbitmq1-data:
+  rabbitmq2-data:
+
+x-rabbitmq-env: &rabbitmq-env
+  RABBITMQ_ERLANG_COOKIE: "${RABBITMQ_ERLANG_COOKIE:?define RABBITMQ_ERLANG_COOKIE en mq/.env}"
+  RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:?define RABBITMQ_DEFAULT_USER en mq/.env}"
+  RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:?define RABBITMQ_DEFAULT_PASS en mq/.env}"
+
+x-rabbitmq-health: &rabbitmq-health
+  # Sano cuando el panel de administración (15672) ya escucha: el nodo está completamente arriba
+  test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_listener", "15672"]
+  interval: 10s
+  timeout: 10s
+  retries: 12
+  start_period: 20s
+
 services:
   rabbitmq1:
     image: rabbitmq:3.13-management
     container_name: rabbitmq1
     hostname: rabbitmq1
-    environment:
-      RABBITMQ_ERLANG_COOKIE: "SECRET_COOKIE_BARRIO_DIGITAL"
-      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:?define RABBITMQ_DEFAULT_USER en mq/.env}"
-      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:?define RABBITMQ_DEFAULT_PASS en mq/.env}"
+    restart: unless-stopped
+    environment: *rabbitmq-env
     volumes:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - rabbitmq1-data:/var/lib/rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 10s
-      retries: 12
-      start_period: 20s
+    healthcheck: *rabbitmq-health
     networks:
       - barrio-network
 
@@ -30,22 +41,23 @@ services:
     image: rabbitmq:3.13-management
     container_name: rabbitmq2
     hostname: rabbitmq2
-    environment:
-      RABBITMQ_ERLANG_COOKIE: "SECRET_COOKIE_BARRIO_DIGITAL"
-      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:?define RABBITMQ_DEFAULT_USER en mq/.env}"
-      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:?define RABBITMQ_DEFAULT_PASS en mq/.env}"
+    restart: unless-stopped
+    environment: *rabbitmq-env
     volumes:
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - rabbitmq2-data:/var/lib/rabbitmq
     ports:
       - "5673:5672"
       - "15673:15672"
+    healthcheck: *rabbitmq-health
+    # Solo ordena el arranque; no espera a rabbitmq1 "sano" para evitar un bloqueo
+    # si el clúster se reinicia completo y rabbitmq1 espera a rabbitmq2.
     depends_on:
-      rabbitmq1:
-        condition: service_healthy
+      - rabbitmq1
     networks:
       - barrio-network
 
-  # Un solo uso: importa exchanges, colas y bindings cuando rabbitmq1 está sano.
+  # Un solo uso: importa exchanges, colas, bindings y política HA cuando rabbitmq1 está sano.
   # Es idempotente: puede ejecutarse en cada "docker compose up".
   rabbitmq-init:
     image: curlimages/curl:8.10.1
@@ -61,7 +73,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
-        curl -fsS --retry 15 --retry-delay 3 --retry-connrefused
+        curl -fsS --retry 10 --retry-delay 3 --retry-connrefused
         -u "$$RABBITMQ_DEFAULT_USER:$$RABBITMQ_DEFAULT_PASS"
         -H "Content-Type: application/json"
         -X POST http://rabbitmq1:15672/api/definitions

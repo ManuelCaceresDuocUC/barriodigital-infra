@@ -1,31 +1,172 @@
 {
   "exchanges": [
-    { "name": "cmd.direct",   "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} },
-    { "name": "cmd.topic",    "vhost": "/", "type": "topic",  "durable": true, "auto_delete": false, "internal": false, "arguments": {} },
-    { "name": "cmd.dead.dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {} }
+    {
+      "name": "cmd.direct",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "cmd.topic",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "cmd.dead.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
   ],
   "queues": [
-    { "name": "q.cmd.email",           "vhost": "/", "durable": true, "auto_delete": false,
-      "arguments": { "x-dead-letter-exchange": "cmd.dead.dlx", "x-dead-letter-routing-key": "email.dlq" } },
-    { "name": "q.cmd.crew",            "vhost": "/", "durable": true, "auto_delete": false,
-      "arguments": { "x-dead-letter-exchange": "cmd.dead.dlx", "x-dead-letter-routing-key": "crew.dlq" } },
-    { "name": "q.cmd.certificate",     "vhost": "/", "durable": true, "auto_delete": false,
-      "arguments": { "x-dead-letter-exchange": "cmd.dead.dlx", "x-dead-letter-routing-key": "certificate.dlq" } },
-    { "name": "q.cmd.email.dlq",       "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
-    { "name": "q.cmd.crew.dlq",        "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} },
-    { "name": "q.cmd.certificate.dlq", "vhost": "/", "durable": true, "auto_delete": false, "arguments": {} }
+    {
+      "name": "q.cmd.email",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "cmd.dead.dlx",
+        "x-dead-letter-routing-key": "email.dlq"
+      }
+    },
+    {
+      "name": "q.cmd.crew",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "cmd.dead.dlx",
+        "x-dead-letter-routing-key": "crew.dlq"
+      }
+    },
+    {
+      "name": "q.cmd.certificate",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "cmd.dead.dlx",
+        "x-dead-letter-routing-key": "certificate.dlq"
+      }
+    },
+    {
+      "name": "q.cmd.email.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.cmd.crew.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.cmd.certificate.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
   ],
   "bindings": [
-    { "source": "cmd.direct", "vhost": "/", "destination": "q.cmd.email",       "destination_type": "queue", "routing_key": "email.send",      "arguments": {} },
-    { "source": "cmd.direct", "vhost": "/", "destination": "q.cmd.crew",        "destination_type": "queue", "routing_key": "crew.ticket",     "arguments": {} },
-    { "source": "cmd.direct", "vhost": "/", "destination": "q.cmd.certificate", "destination_type": "queue", "routing_key": "certificate.gen", "arguments": {} },
-
-    { "source": "cmd.topic",  "vhost": "/", "destination": "q.cmd.email",       "destination_type": "queue", "routing_key": "email.*",         "arguments": {} },
-    { "source": "cmd.topic",  "vhost": "/", "destination": "q.cmd.crew",        "destination_type": "queue", "routing_key": "crew.#",          "arguments": {} },
-    { "source": "cmd.topic",  "vhost": "/", "destination": "q.cmd.certificate", "destination_type": "queue", "routing_key": "certificate.*",   "arguments": {} },
-
-    { "source": "cmd.dead.dlx", "vhost": "/", "destination": "q.cmd.email.dlq",       "destination_type": "queue", "routing_key": "email.dlq",       "arguments": {} },
-    { "source": "cmd.dead.dlx", "vhost": "/", "destination": "q.cmd.crew.dlq",        "destination_type": "queue", "routing_key": "crew.dlq",        "arguments": {} },
-    { "source": "cmd.dead.dlx", "vhost": "/", "destination": "q.cmd.certificate.dlq", "destination_type": "queue", "routing_key": "certificate.dlq", "arguments": {} }
+    {
+      "source": "cmd.direct",
+      "vhost": "/",
+      "destination": "q.cmd.email",
+      "destination_type": "queue",
+      "routing_key": "email.send",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.direct",
+      "vhost": "/",
+      "destination": "q.cmd.crew",
+      "destination_type": "queue",
+      "routing_key": "crew.ticket",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.direct",
+      "vhost": "/",
+      "destination": "q.cmd.certificate",
+      "destination_type": "queue",
+      "routing_key": "certificate.gen",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.topic",
+      "vhost": "/",
+      "destination": "q.cmd.email",
+      "destination_type": "queue",
+      "routing_key": "email.*",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.topic",
+      "vhost": "/",
+      "destination": "q.cmd.crew",
+      "destination_type": "queue",
+      "routing_key": "crew.#",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.topic",
+      "vhost": "/",
+      "destination": "q.cmd.certificate",
+      "destination_type": "queue",
+      "routing_key": "certificate.*",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.dead.dlx",
+      "vhost": "/",
+      "destination": "q.cmd.email.dlq",
+      "destination_type": "queue",
+      "routing_key": "email.dlq",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.dead.dlx",
+      "vhost": "/",
+      "destination": "q.cmd.crew.dlq",
+      "destination_type": "queue",
+      "routing_key": "crew.dlq",
+      "arguments": {}
+    },
+    {
+      "source": "cmd.dead.dlx",
+      "vhost": "/",
+      "destination": "q.cmd.certificate.dlq",
+      "destination_type": "queue",
+      "routing_key": "certificate.dlq",
+      "arguments": {}
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "ha-cmd",
+      "pattern": "^q\\.cmd\\.",
+      "apply-to": "queues",
+      "priority": 0,
+      "definition": {
+        "ha-mode": "all",
+        "ha-sync-mode": "automatic",
+        "ha-promote-on-shutdown": "always"
+      }
+    }
   ]
 }
