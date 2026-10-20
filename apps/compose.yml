@@ -89,6 +89,8 @@ services:
     <<: *servicio-java
     build: ../../ms-barriodigital-notify
     container_name: ms-barriodigital-notify
+    ports:
+      - "127.0.0.1:8083:8083"   # Actuator/health solo accesible desde este host
     environment:
       <<: *entorno-rabbit
       SERVER_PORT: "8083"
