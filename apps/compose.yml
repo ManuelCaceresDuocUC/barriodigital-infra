@@ -67,7 +67,7 @@ services:
     build: ../../ms-barriodigital-requests
     container_name: ms-barriodigital-requests
     environment:
-      <<: [*entorno-jwt, *entorno-db]
+      <<: [*entorno-jwt, *entorno-db, *entorno-rabbit]
       SERVER_PORT: "8081"
       CATALOG_SERVICE_URL: http://ms-barriodigital-catalog:8082
     depends_on:
