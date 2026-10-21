@@ -61,6 +61,7 @@ services:
       CATALOG_SERVICE_URL: http://ms-barriodigital-catalog:8082
       REPORT_SERVICE_URL: http://ms-barriodigital-report:8084
       AUDIT_SERVICE_URL: http://ms-barriodigital-audit:8085
+      RABBITADMIN_SERVICE_URL: http://ms-barriodigital-rabbitadmin:8086
 
   ms-barriodigital-requests:
     <<: *servicio-java
