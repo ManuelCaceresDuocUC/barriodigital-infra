@@ -99,6 +99,23 @@ services:
       retries: 5
       start_period: 40s
 
+  ms-barriodigital-rabbitadmin:
+    <<: *servicio-java
+    build: ../../ms-barriodigital-rabbitadmin
+    container_name: ms-barriodigital-rabbitadmin
+    ports:
+      - "127.0.0.1:8086:8086"   # solo desde este host, para probar con curl; el acceso real será por el BFF
+    environment:
+      <<: [*entorno-jwt, *entorno-rabbit]
+      SERVER_PORT: "8086"
+      RABBITMQ_MGMT_URL: http://${RABBITMQ_HOST:?Falta RABBITMQ_HOST en apps/.env}:15672
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8086/actuator/health/liveness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
   # Consumidores de Kafka: no arrancan hasta que exista el broker.
   # Activar con: docker compose --profile kafka up -d
   # Pendiente: agregar las variables de conexión a Kafka al desplegarlo.
