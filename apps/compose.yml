@@ -93,6 +93,12 @@ services:
     environment:
       <<: *entorno-rabbit
       SERVER_PORT: "8083"
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health/liveness"]
       interval: 15s
