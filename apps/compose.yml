@@ -98,7 +98,7 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM: ${MAIL_FROM:-${MAIL_USERNAME:-}}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8083/actuator/health/liveness"]
       interval: 15s
