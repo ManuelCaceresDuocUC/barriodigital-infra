@@ -1,3 +1,39 @@
+# Secretos y variables de entorno locales.
+# Solo se versionan los archivos .env.example (con valores de ejemplo).
 .env
+.env.*
+!.env.example
 **/.env
-mq/.env
+**/.env.*
+!**/.env.example
+*.bak
+*.bak*
+
+# Claves y certificados (SSH de las EC2, TLS)
+*.pem
+*.key
+*.ppk
+*.crt
+
+# Logs
+*.log
+logs/
+
+# Datos y volúmenes locales (Oracle, RabbitMQ)
+data/
+volumes/
+oradata/
+
+# Editores
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Herramientas locales
+.claude/
+modernize/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
