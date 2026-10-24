@@ -25,6 +25,8 @@ networks:
 
 volumes:
   oracle-data:
+  caddy-data:      # certificados HTTPS: si se pierde, Let's Encrypt los emite de nuevo
+  caddy-config:
 
 services:
   oracle-db:
@@ -122,6 +124,22 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
+
+  # Frontend Angular servido por Caddy con HTTPS automático (puertos 80 y 443 abiertos en el Security Group)
+  frontend-barriodigital:
+    restart: unless-stopped
+    build: ../../frontend-barriodigital
+    container_name: frontend-barriodigital
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${FRONTEND_DOMAIN:?Falta FRONTEND_DOMAIN en apps/.env}
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - barriodigital-net
 
   # Consumidores de Kafka: no arrancan hasta que exista el broker.
   # Activar con: docker compose --profile kafka up -d
