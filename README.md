@@ -14,6 +14,8 @@ El sistema son microservicios Java (Spring Boot) detrás de un BFF, con autentic
 | `mq/definitions.json` | Exchanges, colas, bindings y política de alta disponibilidad |
 | `mq/.env.example` | Plantilla de variables de entorno de `ec2-mq` |
 | `mq/README.md`, `docs/ec2-mq.md` | Detalle del clúster RabbitMQ y de la instancia que lo aloja |
+| `docs/matriz-funcionalidades.md` | Matriz de funcionalidades: estado, componente y evidencia de cada una |
+| `docs/guion-presentacion.md` | Guion de la presentación EP4: orden, comandos y preguntas probables |
 | `kafka/compose.yml` | Clúster Kafka (pendiente: aún no forma parte del sistema desplegado) |
 
 Los servicios se construyen desde sus propios repositorios, que deben estar clonados **junto a este** (`../../ms-barriodigital-*` desde `apps/`):
@@ -162,7 +164,7 @@ docker logs --tail 20 ms-barriodigital-requests | grep -i -E "Started|ERROR"
 curl -i https://<API_ID>.execute-api.us-east-1.amazonaws.com/<stage>/api/catalog/procedures
 ```
 
-Debe responder **401** (sin token). Un 401 prueba que la petición llegó al BFF y que este valida el JWT. Un 5xx o un tiempo de espera indica que API Gateway no alcanza `ec2-apps:8080`.
+Debe responder **401** (sin token). El 401 lo devuelve el JWT Authorizer del API Gateway o, si la petición lo supera, el BFF. Un 5xx o un tiempo de espera indica que API Gateway no alcanza `ec2-apps:8080`.
 
 ## Puertos
 

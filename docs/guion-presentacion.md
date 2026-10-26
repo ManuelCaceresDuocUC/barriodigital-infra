@@ -7,22 +7,23 @@ API Gateway: `https://lkbz5es695.execute-api.us-east-1.amazonaws.com`
 
 ## 1. Orden y tiempos
 
-| # | Tiempo | Qué se muestra | Punto de la pauta que cubre |
-|---|--------|----------------|-----------------------------|
-| 0 | 0:00–0:40 | Diagrama de arquitectura (README de infra): JWT → API Gateway → BFF → microservicios, y RabbitMQ al costado. | Introducción |
-| 1 | 0:40–1:30 | Portal de Azure (Entra ID): tenant, usuarios `admin.test`, `operador.test`, `cliente.test`, roles de la app. | 4. Tenant y usuarios en el IDaaS |
-| 2 | 1:30–2:20 | Abrir el frontend, iniciar sesión con Microsoft y mostrar el token decodificado (claims `roles`, `aud`, `iss`, `exp`). | 5. Login OAuth 2.0 / OpenID Connect |
-| 3 | 2:20–3:10 | Consola de AWS → API Gateway: API `BarrioDigital-API`, ruta `/{proxy+}`, integración con el BFF, stage. | 1. Instancia y configuración del API Manager |
-| 4 | 3:10–3:50 | Frontend → Solicitudes con DevTools (pestaña Network): las llamadas van a `execute-api…amazonaws.com` con `Authorization: Bearer`. | 2. Frontend consumiendo por el API Manager |
-| 5 | 3:50–4:50 | PowerShell: sin token → 401; token alterado → 401; token válido → 200. | 3. JWT inválido rechazado y válido aceptado |
-| 6 | 4:50–5:30 | SSH a ec2-apps: `docker compose ps` (BFF, requests, catalog, notify, rabbitadmin, frontend) y candado HTTPS del frontend. | 6. Backend y frontend desplegados en la nube |
-| 7 | 5:30–6:10 | SSH a ec2-mq: `docker compose ps` y `mq/compose.yml` (dos nodos + init que importa `definitions.json`). | 10. `docker compose` levantando RabbitMQ en la nube |
-| 8 | 6:10–6:50 | Management UI → Overview: dos nodos en el clúster y política `ha-cmd`. | 7. Dos nodos RabbitMQ en clúster |
-| 9 | 6:50–7:40 | Management UI → Exchanges: `cmd.direct` (direct), `cmd.topic` (topic) y sus bindings. | 8. Exchange direct y 9. Exchange topic |
-| 10 | 7:40–9:20 | Queues: las tres colas con su DLQ. Crear una solicitud real (llega el correo / log de notify) y publicar un mensaje inválido para que termine en la DLQ. | 11. Tres colas con sus DLQ funcionando |
-| 11 | 9:20–10:00 | Cierre y preguntas. | — |
+La pauta de EP4 calcula el logro de la matriz sobre lo que se **demuestra en funcionamiento**, así que cada fila de [matriz-funcionalidades.md](matriz-funcionalidades.md) (M01 a M16) se muestra en algún paso. Varias salen de un mismo recorrido: crear una solicitud muestra login, roles, solicitudes, cupo y cola a la vez.
 
-Total estimado: 9 a 10 minutos. Si se acorta, se recortan los pasos 3 y 7 (basta nombrarlos).
+| # | Tiempo | Qué se muestra | Matriz | Punto de la pauta |
+|---|--------|----------------|--------|-------------------|
+| 0 | 0:00–0:30 | Diagrama de arquitectura (README de infra): JWT → API Gateway → BFF → microservicios, y RabbitMQ al costado. | — | Introducción |
+| 1 | 0:30–1:20 | Portal de Azure (Entra ID): tenant, usuarios `admin.test`, `operador.test`, `cliente.test` y roles de la app. | M01 | Tenant y usuarios en el IDaaS |
+| 2 | 1:20–2:00 | Frontend con la sesión cerrada: login con Microsoft y token decodificado (`iss`, `aud`, `roles`, `exp`). | M02 | Login OAuth 2.0 / OIDC |
+| 3 | 2:00–3:10 | Consola de AWS → API Gateway: API, ruta `/{proxy+}`, integración con el BFF y el JWT Authorizer. Luego PowerShell: sin token → 401, token alterado → 401, token válido → 200. | M03 | Instancia y configuración del API Manager; JWT inválido/válido |
+| 4 | 3:10–5:10 | **Recorrido integrado en el frontend.** Como `cliente.test`: crear una solicitud con correo propio y filtrarla (M06); ver que el menú solo ofrece lo permitido (M05); DevTools → Network con las llamadas a `execute-api…` y el Bearer (M04). Como `admin.test`: abrir el catálogo (M08), anotar el cupo del trámite, admitir la solicitud, cambiar su estado y probar una transición inválida (M07); ver que el cupo bajó (M09). | M04–M09 | Frontend consumiendo por el API Manager |
+| 5 | 5:10–5:40 | SSH a ec2-apps: `docker compose ps` (BFF, requests, catalog, notify, rabbitadmin, frontend) y el candado HTTPS del frontend. | M16 | Backend y frontend desplegados en la nube |
+| 6 | 5:40–6:40 | SSH a ec2-mq: `docker compose ps` y `cluster_status`. Management UI: los dos nodos, los exchanges `cmd.direct` (direct), `cmd.topic` (topic) y `cmd.dead.dlx`, y las seis colas con la política `ha-cmd`. | M14 | Compose de RabbitMQ; dos nodos en clúster; exchanges direct y topic |
+| 7 | 6:40–7:40 | `docker compose logs --tail 30 ms-barriodigital-notify`: el evento de la solicitud del paso 4 fue consumido y confirmado (ACK); el correo llegó a la bandeja. | M10, M11 | Colas funcionando |
+| 8 | 7:40–8:40 | Publicar un mensaje inválido desde la Management UI y mostrar 1 mensaje en `q.cmd.crew.dlq` con su cabecera `x-death`; mostrar el registro en los logs de notify. | M13 | Tres colas con sus DLQ funcionando |
+| 9 | 8:40–9:30 | PowerShell con token de Admin: crear y eliminar una cola de prueba por el microservicio administrador (a través del BFF). | M15 | Administrador de RabbitMQ |
+| 10 | 9:30–9:50 | Cierre: matriz de funcionalidades (16 funcionalidades, 15 demostradas; el PDF del certificado está declarado como parcial). | — | Sistematización |
+
+Total estimado: unos 9 minutos y 50 segundos. Está justo en el límite de 10 minutos: si hace falta ganar tiempo, acorta el paso 0 y el 5.
 
 ## 2. Lista de pre-chequeo (30 minutos antes)
 
@@ -47,10 +48,12 @@ Total estimado: 9 a 10 minutos. Si se acorta, se recortan los pasos 3 y 7 (basta
 - [ ] Colas limpias: en Queues, **Purge** de `q.cmd.crew.dlq`, `q.cmd.email.dlq` y `q.cmd.certificate.dlq`, para que el contador parta de 0.
 - [ ] Un trámite del catálogo con cupo disponible y un correo propio para el solicitante.
 - [ ] Probar el recorrido completo una vez y cerrar sesión de nuevo.
+- [ ] Confirmar en la consola de API Gateway que el JWT Authorizer está asignado a la ruta `/{proxy+}` (la pauta exige mostrar que el API Manager valida el JWT).
+- [ ] Tener a mano un trámite con cupo y anotar su valor; tener probados los dos comandos del paso 9.
 
 ## 3. Comandos listos
 
-### Paso 5: JWT inválido y válido (PowerShell)
+### Paso 3: JWT inválido y válido (PowerShell)
 
 ```powershell
 $API = 'https://lkbz5es695.execute-api.us-east-1.amazonaws.com'
@@ -72,14 +75,14 @@ curl.exe -s -o NUL -w "token valido:   %{http_code}`n" -H "Authorization: Bearer
 
 Qué decir: la petición llega al BFF a través de API Gateway; el BFF actúa como *resource server* y valida firma, emisor y expiración del JWT contra las claves públicas del tenant. Un token manipulado falla la verificación de firma.
 
-### Paso 6: despliegue (SSH en ec2-apps)
+### Paso 5: despliegue (SSH en ec2-apps)
 
 ```bash
 cd ~/barriodigital/barriodigital-infra/apps
 docker compose ps
 ```
 
-### Paso 7: RabbitMQ con Compose (SSH en ec2-mq)
+### Paso 6: RabbitMQ con Compose (SSH en ec2-mq)
 
 ```bash
 cd ~/barriodigital/barriodigital-infra/mq
@@ -87,9 +90,9 @@ docker compose ps
 docker exec rabbitmq1 rabbitmqctl cluster_status | head -20
 ```
 
-### Paso 10: DLQ funcionando
+### Pasos 7 y 8: consumo y DLQ
 
-**A) Flujo real.** En el frontend, crear una solicitud con correo. Luego:
+**A) Flujo real (paso 7).** Con la solicitud creada en el paso 4:
 
 ```bash
 docker compose logs --tail 30 ms-barriodigital-notify
@@ -97,7 +100,7 @@ docker compose logs --tail 30 ms-barriodigital-notify
 
 Debe verse el consumo de `q.cmd.email` y el ACK. En la Management UI, `q.cmd.email` queda en 0 mensajes listos (se consumió y confirmó).
 
-**B) Mensaje inválido que termina en la DLQ.** Management UI → Exchanges → `cmd.direct` → *Publish message*:
+**B) Mensaje inválido que termina en la DLQ (paso 8).** Management UI → Exchanges → `cmd.direct` → *Publish message*:
 
 - Routing key: `crew.ticket`
 - Properties: `content_type` = `application/json`
@@ -110,6 +113,25 @@ Debe verse el consumo de `q.cmd.email` y el ACK. En la Management UI, `q.cmd.ema
 Resultado esperado: el listener rechaza el ticket porque no trae identificador (`IllegalArgumentException`, error no recuperable), hace **NACK sin reencolar** y RabbitMQ lo enruta a `q.cmd.crew.dlq` por el dead-letter exchange `cmd.dead.dlx`. En Queues, `q.cmd.crew.dlq` pasa de 0 a 1. Abrirla con *Get messages* (modo *Nack message requeue true*, para no destruirlo) y mostrar la cabecera `x-death`. Los logs de notify registran el motivo.
 
 Para volver a dejarlo limpio: *Purge Messages* en `q.cmd.crew.dlq`.
+
+### Paso 9: administrador de RabbitMQ (PowerShell)
+
+Crear, consultar y eliminar una cola de prueba con el token de `admin.test`, a través del BFF. El cuerpo va en un archivo porque PowerShell 5 altera las comillas dobles al pasárselas a `curl.exe`.
+
+```powershell
+'{"name":"q.demo.eval"}' | Set-Content -Encoding ascii body.json
+
+# Crear -> 201
+curl.exe -i -X POST "$API/api/rabbit/queues" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "@body.json"
+
+# Consultar -> 200 (también aparece en la Management UI)
+curl.exe -s "$API/api/rabbit/queues/q.demo.eval" -H "Authorization: Bearer $TOKEN"
+
+# Eliminar -> 204
+curl.exe -i -X DELETE "$API/api/rabbit/queues/q.demo.eval" -H "Authorization: Bearer $TOKEN"
+```
+
+Qué decir: solo el rol Admin puede usarlo (con otro rol responde 403) y las colas `q.cmd.*` y los exchanges `cmd.*` están protegidos (responden 409); por eso la demo usa una cola propia. Más ejemplos en `docs/rabbitadmin.http` del repositorio `ms-barriodigital-rabbitadmin`.
 
 ## 4. Preguntas probables del docente
 
@@ -129,7 +151,7 @@ El listener lleva un registro de `eventId` ya procesados y confirma con ACK sin 
 `cmd.direct` enruta por clave exacta y es el que usa el sistema hoy. `cmd.topic` queda declarado, con bindings `email.*`, `crew.#` y `certificate.*`, para enrutar por patrones cuando haya consumidores que necesiten, por ejemplo, todos los eventos de cuadrillas.
 
 **¿Cómo se valida el JWT y quién lo valida?**
-El BFF, como *resource server* de Spring Security, descarga las claves públicas del tenant y verifica firma, emisor y expiración. Los roles (`Admin`, `Operador`, `Auditor`) vienen en el claim `roles` y controlan el acceso a cada ruta. Limitación honesta: aún no se valida la audiencia (`aud`) del token.
+Se valida en dos capas. Primero, el API Gateway con su JWT Authorizer rechaza lo que no trae un token con firma, emisor, audiencia y expiración válidos. Segundo, el BFF y los microservicios, como *resource server* de Spring Security, vuelven a verificar firma, emisor y expiración y autorizan según el claim `roles` (`Admin`, `Operador`, `Auditor`). Limitación honesta: los servicios internos no comprueban la audiencia (`aud`); esa comprobación solo la hace el API Gateway.
 
 **¿Por qué dos instancias EC2?**
 Separar RabbitMQ de las aplicaciones permite reiniciar o escalar cada parte por separado, y mantener la IP privada del broker estable. El clúster de dos nodos con colas replicadas permite que el servicio de mensajería siga disponible si un nodo cae.
