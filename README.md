@@ -16,6 +16,7 @@ El sistema son microservicios Java (Spring Boot) detrás de un BFF, con autentic
 | `mq/README.md`, `docs/ec2-mq.md` | Detalle del clúster RabbitMQ y de la instancia que lo aloja |
 | `docs/matriz-funcionalidades.md` | Matriz de funcionalidades: estado, componente y evidencia de cada una |
 | `docs/guion-presentacion.md` | Guion de la presentación EP4: orden, comandos y preguntas probables |
+| `docs/despliegue-automatico.md`, `.github/workflows/` | Despliegue automático a `ec2-apps` con GitHub Actions (tests + SSH + `docker compose up`) |
 | `kafka/compose.yml` | Clúster Kafka (pendiente: aún no forma parte del sistema desplegado) |
 
 Los servicios se construyen desde sus propios repositorios, que deben estar clonados **junto a este** (`../../ms-barriodigital-*` desde `apps/`):

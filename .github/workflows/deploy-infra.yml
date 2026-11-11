@@ -1,0 +1,46 @@
+# Aplica los cambios de apps/compose.yml en ec2-apps cuando se fusionan en main.
+# No reconstruye imágenes: `docker compose up -d` recrea solo los contenedores cuya configuración cambió.
+name: Despliegue de infraestructura (ec2-apps)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - ".github/workflows/deploy-service.yml"
+      - ".github/workflows/deploy-infra.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    name: Validar apps/compose.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose config
+        env:
+          # Valores ficticios: solo se comprueba la sintaxis; los reales están en apps/.env de la EC2.
+          AZURE_TENANT_ID: ci
+          DB_USER: ci
+          DB_PASSWORD: ci
+          ORACLE_PASSWORD: ci
+          RABBITMQ_HOST: ci
+          RABBITMQ_USER: ci
+          RABBITMQ_PASSWORD: ci
+          FRONTEND_DOMAIN: ci.example.com
+        run: docker compose -f apps/compose.yml --profile kafka config --quiet
+
+  desplegar:
+    name: Desplegar
+    needs: validar
+    uses: ./.github/workflows/deploy-service.yml
+    with:
+      directorio: barriodigital-infra
+    secrets:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
