@@ -153,10 +153,11 @@ docker logs --tail 5 ms-barriodigital-notify                       # debe mostra
 curl -s http://localhost:8086/actuator/health                      # {"status":"UP"}
 ```
 
-**3. Conexión de requests con RabbitMQ y Oracle:**
+**3. Conexión de requests con Oracle y con rabbitadmin (que publica en RabbitMQ):**
 
 ```bash
 docker logs --tail 20 ms-barriodigital-requests | grep -i -E "Started|ERROR"
+docker logs --tail 20 ms-barriodigital-rabbitadmin | grep -i "Mensaje publicado"   # tras cambiar el estado de una solicitud
 ```
 
 **4. Cadena API Gateway → BFF** (desde cualquier equipo):
@@ -195,10 +196,10 @@ Todas se definen en el `.env` de la instancia correspondiente. `docker compose` 
 | `DB_USER` | Sí | requests, catalog, report, audit, oracle-db | Usuario de la aplicación en Oracle |
 | `DB_PASSWORD` | Sí | requests, catalog, report, audit, oracle-db | Clave de ese usuario |
 | `ORACLE_PASSWORD` | Sí | oracle-db | Clave del administrador de Oracle (`SYS`/`SYSTEM`) |
-| `RABBITMQ_HOST` | Sí | requests, notify, rabbitadmin | IP privada de ec2-mq. También forma la URL de gestión `http://<host>:15672` de rabbitadmin |
-| `RABBITMQ_PORT` | No (5672) | requests, notify, rabbitadmin | Puerto AMQP |
-| `RABBITMQ_USER` | Sí | requests, notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_USER` de `mq/.env` |
-| `RABBITMQ_PASSWORD` | Sí | requests, notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_PASS` de `mq/.env` |
+| `RABBITMQ_HOST` | Sí | notify, rabbitadmin | IP privada de ec2-mq. También forma la URL de gestión `http://<host>:15672` de rabbitadmin |
+| `RABBITMQ_PORT` | No (5672) | notify, rabbitadmin | Puerto AMQP |
+| `RABBITMQ_USER` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_USER` de `mq/.env` |
+| `RABBITMQ_PASSWORD` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_PASS` de `mq/.env` |
 | `MAIL_ENABLED` | No (`false`) | notify | `true` envía correos reales por SMTP; `false` solo los simula en el log |
 | `MAIL_USERNAME` | Si `MAIL_ENABLED=true` | notify | Cuenta que envía (usuario SMTP) |
 | `MAIL_PASSWORD` | Si `MAIL_ENABLED=true` | notify | Clave de aplicación de esa cuenta (no la clave normal) |
