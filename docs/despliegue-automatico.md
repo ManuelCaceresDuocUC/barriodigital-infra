@@ -35,14 +35,29 @@ Se definen **en cada repositorio** (los repos son de una cuenta personal, así q
 | `EC2_SSH_KEY` | Llave privada completa (`.pem`) con la que se entra a `ec2-apps` |
 | `EC2_KNOWN_HOSTS` | Salida de `ssh-keyscan -t ed25519 <EC2_HOST>` (huella del servidor; evita conectarse a un host falso) |
 
-Ejemplo de carga con la CLI de GitHub (PowerShell), una vez por repositorio:
+Carga con la CLI de GitHub (PowerShell). Se repite para los 9 repositorios (infra, bff, requests, catalog, notify, rabbitadmin, report, audit y frontend):
 
 ```powershell
-$repo = "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-requests"
-gh secret set EC2_HOST        --repo $repo --body "<IP elástica>"
-gh secret set EC2_USER        --repo $repo --body "ec2-user"
-gh secret set EC2_SSH_KEY     --repo $repo < "C:\ruta\a\llave.pem"
-gh secret set EC2_KNOWN_HOSTS --repo $repo --body (ssh-keyscan -t ed25519 <IP elástica> 2>$null | Out-String)
+$ip      = "<IP elástica de ec2-apps>"
+$pem     = "C:\ruta\a\llave.pem"
+$hostkey = (ssh-keyscan -t ed25519 $ip 2>$null) -join "`n"
+$repos   = @(
+  "ManuelCaceresDuocUC/barriodigital-infra",
+  "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-bff",
+  "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-requests",
+  "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-catalog",
+  "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-notify",
+  "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-rabbitadmin",
+  "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-report",
+  "ManuelCaceresDuocUC/barrioDigital-ms-barriodigital-audit",
+  "ManuelCaceresDuocUC/frontend-barriodigital"
+)
+foreach ($r in $repos) {
+  gh secret set EC2_HOST        --repo $r --body $ip
+  gh secret set EC2_USER        --repo $r --body "ec2-user"
+  gh secret set EC2_KNOWN_HOSTS --repo $r --body $hostkey
+  Get-Content -Raw $pem | gh secret set EC2_SSH_KEY --repo $r
+}
 ```
 
 ## Requisitos en ec2-apps
