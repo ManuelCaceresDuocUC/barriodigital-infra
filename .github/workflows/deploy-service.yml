@@ -67,7 +67,8 @@ jobs:
               "$EC2_USER@$EC2_HOST" bash -s -- "$DIRECTORIO" "$SERVICIO" <<'REMOTO'
           set -euo pipefail
           directorio="$1"
-          servicio="$2"
+          # SSH descarta los argumentos vacíos: si no hay servicio, $2 no existe.
+          servicio="${2:-}"
 
           cd "$HOME/barriodigital/$directorio"
           git pull --ff-only
