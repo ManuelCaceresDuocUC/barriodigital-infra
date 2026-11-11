@@ -1,0 +1,124 @@
+# Workflow reutilizable: despliega un servicio (o todo `apps/`) en ec2-apps por SSH.
+#
+# Lo llaman los workflows `ci-cd.yml` de cada microservicio y `deploy-infra.yml`.
+# En ec2-apps ejecuta, en este orden:
+#   1. git pull --ff-only          en ~/barriodigital/<directorio>
+#   2. docker compose up -d --build <servicio>   en ~/barriodigital/barriodigital-infra/apps
+#   3. comprobación de que el contenedor quedó en pie (y `healthy` si define healthcheck)
+name: Despliegue en ec2-apps
+
+on:
+  workflow_call:
+    inputs:
+      directorio:
+        description: "Carpeta del repositorio dentro de ~/barriodigital en ec2-apps"
+        required: true
+        type: string
+      servicio:
+        description: "Servicio de apps/compose.yml a reconstruir. Vacío: aplica el compose completo sin reconstruir."
+        required: false
+        type: string
+        default: ""
+    secrets:
+      EC2_HOST:
+        required: true
+      EC2_USER:
+        required: true
+      EC2_SSH_KEY:
+        required: true
+      EC2_KNOWN_HOSTS:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  desplegar:
+    name: Desplegar ${{ inputs.servicio || inputs.directorio }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Un solo despliegue a la vez: dos `docker compose` simultáneos sobre el mismo proyecto chocan.
+    concurrency:
+      group: deploy-ec2-apps
+      cancel-in-progress: false
+    steps:
+      - name: Preparar la conexión SSH
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Desplegar
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          DIRECTORIO: ${{ inputs.directorio }}
+          SERVICIO: ${{ inputs.servicio }}
+        run: |
+          # Los valores viajan como argumentos (no interpolados en el script remoto).
+          ssh -i ~/.ssh/id_deploy \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=30 \
+              "$EC2_USER@$EC2_HOST" bash -s -- "$DIRECTORIO" "$SERVICIO" <<'REMOTO'
+          set -euo pipefail
+          directorio="$1"
+          servicio="$2"
+
+          cd "$HOME/barriodigital/$directorio"
+          git pull --ff-only
+
+          cd "$HOME/barriodigital/barriodigital-infra/apps"
+          if [ -n "$servicio" ]; then
+            docker compose up -d --build "$servicio"
+            ids=$(docker compose ps -q "$servicio")
+          else
+            docker compose up -d
+            ids=$(docker compose ps -q)
+          fi
+
+          # Los servicios Java tardan en arrancar: se espera hasta 3 minutos a que cada
+          # contenedor esté `running` y, si define healthcheck, `healthy`.
+          fallo=0
+          for id in $ids; do
+            nombre=$(docker inspect -f '{{.Name}}' "$id" | tr -d '/')
+            ok=0
+            for _ in $(seq 1 36); do
+              estado=$(docker inspect -f '{{.State.Status}}' "$id")
+              salud=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}sin-healthcheck{{end}}' "$id")
+              if [ "$estado" = "running" ] && { [ "$salud" = "healthy" ] || [ "$salud" = "sin-healthcheck" ]; }; then
+                ok=1
+                break
+              fi
+              sleep 5
+            done
+            if [ "$ok" -eq 1 ]; then
+              echo "OK  $nombre ($estado, $salud)"
+            else
+              echo "ERROR  $nombre ($estado, $salud)"
+              docker logs --tail 40 "$id" || true
+              fallo=1
+            fi
+          done
+
+          # Un contenedor `running` sin healthcheck puede estar reiniciándose en bucle.
+          # Pasado un momento se vuelve a mirar para detectarlo.
+          sleep 15
+          for id in $ids; do
+            if [ "$(docker inspect -f '{{.State.Restarting}}' "$id")" = "true" ]; then
+              echo "ERROR  $(docker inspect -f '{{.Name}}' "$id") se está reiniciando en bucle"
+              fallo=1
+            fi
+          done
+
+          docker compose ps
+          exit "$fallo"
+          REMOTO
+
+      - name: Limpiar la llave SSH
+        if: always()
+        run: rm -f ~/.ssh/id_deploy
