@@ -11,14 +11,14 @@ La pauta de EP4 calcula el logro de la matriz sobre lo que se **demuestra en fun
 
 | # | Tiempo | Qué se muestra | Matriz | Punto de la pauta |
 |---|--------|----------------|--------|-------------------|
-| 0 | 0:00–0:30 | Diagrama de arquitectura (README de infra): JWT → API Gateway → BFF → microservicios, y RabbitMQ al costado. | — | Introducción |
+| 0 | 0:00–0:30 | Diagrama de arquitectura (README de infra): JWT → API Gateway → BFF → microservicios; `requests` pide la publicación a `rabbitadmin`, el único servicio que publica en RabbitMQ. | — | Introducción |
 | 1 | 0:30–1:20 | Portal de Azure (Entra ID): tenant, usuarios `admin.test`, `operador.test`, `cliente.test` y roles de la app. | M01 | Tenant y usuarios en el IDaaS |
 | 2 | 1:20–2:00 | Frontend con la sesión cerrada: login con Microsoft y token decodificado (`iss`, `aud`, `roles`, `exp`). | M02 | Login OAuth 2.0 / OIDC |
 | 3 | 2:00–3:10 | Consola de AWS → API Gateway: API, ruta `/{proxy+}`, integración con el BFF y el JWT Authorizer. Luego PowerShell: sin token → 401, token alterado → 401, token válido → 200. | M03 | Instancia y configuración del API Manager; JWT inválido/válido |
 | 4 | 3:10–5:10 | **Recorrido integrado en el frontend.** Como `cliente.test`: crear una solicitud con correo propio y filtrarla (M06); ver que el menú solo ofrece lo permitido (M05); DevTools → Network con las llamadas a `execute-api…` y el Bearer (M04). Como `admin.test`: abrir el catálogo (M08), anotar el cupo del trámite, admitir la solicitud, cambiar su estado y probar una transición inválida (M07); ver que el cupo bajó (M09). | M04–M09 | Frontend consumiendo por el API Manager |
-| 5 | 5:10–5:40 | SSH a ec2-apps: `docker compose ps` (BFF, requests, catalog, notify, rabbitadmin, frontend) y el candado HTTPS del frontend. | M16 | Backend y frontend desplegados en la nube |
+| 5 | 5:10–5:40 | SSH a ec2-apps: `docker compose ps` (BFF, requests, catalog, notify, rabbitadmin, frontend) y el candado HTTPS del frontend. Opcional: la pestaña *Actions* de GitHub con un despliegue automático en verde. | M16 | Backend y frontend desplegados en la nube |
 | 6 | 5:40–6:40 | SSH a ec2-mq: `docker compose ps` y `cluster_status`. Management UI: los dos nodos, los exchanges `cmd.direct` (direct), `cmd.topic` (topic) y `cmd.dead.dlx`, y las seis colas con la política `ha-cmd`. | M14 | Compose de RabbitMQ; dos nodos en clúster; exchanges direct y topic |
-| 7 | 6:40–7:40 | `docker compose logs --tail 30 ms-barriodigital-notify`: el evento de la solicitud del paso 4 fue consumido y confirmado (ACK); el correo llegó a la bandeja. | M10, M11 | Colas funcionando |
+| 7 | 6:40–7:40 | Recorrido del mensaje en tres logs: `requests` ("Evento publicado"), `rabbitadmin` ("Mensaje publicado" en `cmd.direct`) y `notify` (consumo y ACK); el correo llegó a la bandeja. | M10, M11 | Colas funcionando |
 | 8 | 7:40–8:40 | Publicar un mensaje inválido desde la Management UI y mostrar 1 mensaje en `q.cmd.crew.dlq` con su cabecera `x-death`; mostrar el registro en los logs de notify. | M13 | Tres colas con sus DLQ funcionando |
 | 9 | 8:40–9:30 | PowerShell con token de Admin: crear y eliminar una cola de prueba por el microservicio administrador (a través del BFF). | M15 | Administrador de RabbitMQ |
 | 10 | 9:30–9:50 | Cierre: matriz de funcionalidades (16 funcionalidades, 15 demostradas; el PDF del certificado está declarado como parcial). | — | Sistematización |
@@ -100,6 +100,16 @@ docker compose logs --tail 30 ms-barriodigital-notify
 
 Debe verse el consumo de `q.cmd.email` y el ACK. En la Management UI, `q.cmd.email` queda en 0 mensajes listos (se consumió y confirmó).
 
+El recorrido completo, en tres terminales o tres comandos seguidos:
+
+```bash
+docker compose logs --tail 5 ms-barriodigital-requests | grep "Evento publicado"
+docker compose logs --tail 5 ms-barriodigital-rabbitadmin | grep "Mensaje publicado"
+docker compose logs --tail 5 ms-barriodigital-notify | grep -i "Correo enviado"
+```
+
+Qué decir: `requests` no conoce RabbitMQ; solo llama a `rabbitadmin` (`POST /internal/messages`), que arma el envelope y publica. `notify` confirma con ACK manual: `basicAck` al terminar, `basicNack` sin reencolar si el mensaje es inválido o agota los reintentos.
+
 **B) Mensaje inválido que termina en la DLQ (paso 8).** Management UI → Exchanges → `cmd.direct` → *Publish message*:
 
 - Routing key: `crew.ticket`
@@ -155,6 +165,18 @@ Se valida en dos capas. Primero, el API Gateway con su JWT Authorizer rechaza lo
 
 **¿Por qué dos instancias EC2?**
 Separar RabbitMQ de las aplicaciones permite reiniciar o escalar cada parte por separado, y mantener la IP privada del broker estable. El clúster de dos nodos con colas replicadas permite que el servicio de mensajería siga disponible si un nodo cae.
+
+**¿Por qué requests no publica directo en RabbitMQ?**
+Porque cada servicio que publicara tendría que replicar la configuración del broker (conexión, exchange, conversor de mensajes, envelope y routing keys). Con `rabbitadmin` como único punto de publicación, eso se define una sola vez: `requests` solo conoce una interfaz (`MessageGateway`) y una URL. Cambiar de broker o de formato de mensaje implica tocar un solo servicio.
+
+**¿Qué rutas expone el administrador de RabbitMQ?**
+Todas las rutas `/api/rabbit/**` exigen rol Admin y llegan por el BFF (401 sin token y 403 con otro rol). La excepción es `POST /internal/messages`, de uso interno entre servicios: no lleva token, pero no se expone fuera de la red de Docker (el BFF solo reenvía `/api/**` y el puerto 8086 escucha solo en `127.0.0.1`) y solo acepta las routing keys `email.send`, `crew.ticket` y `certificate.gen`. Limitación honesta: cualquier contenedor de esa red podría publicar; en producción se agregaría un token de servicio.
+
+**¿Dónde están los ACK y dónde se separa la lógica de negocio de Rabbit?**
+En `notify`, la clase `AckHandler` concentra `basicAck` y `basicNack`; los listeners por dominio (`email`, `crew`, `certificate`) solo delegan en servicios de negocio (`EmailService`, `CrewTicketService`, …) que no conocen RabbitMQ. En `requests`, la publicación está detrás de `MessageGateway`, y solo `rabbitadmin` usa `RabbitTemplate` y `AmqpAdmin`.
+
+**¿Cómo se despliega el sistema?**
+Con GitHub Actions: al fusionar en `main`, el workflow ejecuta los tests y, si pasan, entra por SSH a ec2-apps, hace `git pull` y `docker compose up -d --build` del servicio, y verifica que quede `running`/`healthy`. El detalle está en `docs/despliegue-automatico.md`.
 
 ## 5. Si algo falla en vivo
 
