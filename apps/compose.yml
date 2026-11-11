@@ -70,9 +70,11 @@ services:
     build: ../../ms-barriodigital-requests
     container_name: ms-barriodigital-requests
     environment:
-      <<: [*entorno-jwt, *entorno-db, *entorno-rabbit]
+      <<: [*entorno-jwt, *entorno-db]
       SERVER_PORT: "8081"
       CATALOG_SERVICE_URL: http://ms-barriodigital-catalog:8082
+      # requests no se conecta a RabbitMQ: pide la publicación a rabbitadmin.
+      RABBITADMIN_SERVICE_URL: http://ms-barriodigital-rabbitadmin:8086
     depends_on:
       oracle-db:
         condition: service_healthy
