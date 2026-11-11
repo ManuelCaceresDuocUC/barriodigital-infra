@@ -50,7 +50,7 @@ flowchart TB
         req["requests :8081<br/>PRODUCTOR"]
         cat["catalog :8082"]
         notify["notify :8083<br/>CONSUMIDOR"]
-        radm["rabbitadmin :8086"]
+        radm["rabbitadmin :8086<br/>único que publica en RabbitMQ"]
         rep["report :8084<br/>(perfil kafka)"]
         aud["audit :8085<br/>(perfil kafka)"]
         ora[("Oracle Free<br/>:1521 FREEPDB1")]
@@ -71,15 +71,15 @@ flowchart TB
     cat --> ora
     rep --> ora
     aud --> ora
-    req -- "publica en cmd.direct<br/>AMQP :5672" --> rmq
+    req -- "POST /internal/messages<br/>(red interna)" --> radm
     rmq -- "q.cmd.email<br/>q.cmd.crew<br/>q.cmd.certificate" --> notify
-    radm -- "AMQP :5672 + API :15672" --> rmq
+    radm -- "publica en cmd.direct (AMQP :5672)<br/>administra (API :15672)" --> rmq
     notify -- "correo real" --> gmail
 ```
 
 **Cómo viaja una petición.** El portal obtiene un JWT de Entra ID y lo envía a API Gateway, que reenvía todo (ruta comodín) al BFF en el puerto 8080. El BFF es el único servicio accesible desde fuera; los demás solo se alcanzan por la red interna de Docker. Cada servicio valida el JWT con el emisor de Entra ID y autoriza según el claim `roles` (`Admin`, `Operador`, `Auditor`; quien no tiene ninguno se trata como `Cliente`).
 
-**Cómo viaja un aviso.** Cuando `requests` crea o cambia de estado un trámite, publica mensajes en el exchange `cmd.direct` de RabbitMQ (`email.send`, `crew.ticket`, `certificate.gen`). `notify` consume las colas `q.cmd.email`, `q.cmd.crew` y `q.cmd.certificate`; el correo se envía de verdad por SMTP y los otros dos destinos simulan el trabajo. Los mensajes que fallan van a las colas `q.cmd.*.dlq`.
+**Cómo viaja un aviso.** Cuando `requests` crea o cambia de estado un trámite, le pide a `rabbitadmin` (`POST /internal/messages`, ruta interna sin token) que publique el mensaje. `rabbitadmin` es el único servicio que publica en RabbitMQ, así que el exchange `cmd.direct`, el formato del mensaje y las routing keys permitidas (`email.send`, `crew.ticket`, `certificate.gen`) se definen una sola vez. `notify` consume las colas `q.cmd.email`, `q.cmd.crew` y `q.cmd.certificate`; el correo se envía de verdad por SMTP y los otros dos destinos simulan el trabajo. Los mensajes que fallan van a las colas `q.cmd.*.dlq`.
 
 ## Puesta en marcha inicial
 
