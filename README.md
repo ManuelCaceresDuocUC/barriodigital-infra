@@ -29,6 +29,7 @@ Los servicios se construyen desde sus propios repositorios, que deben estar clon
 ├── ms-barriodigital-catalog/
 ├── ms-barriodigital-notify/
 ├── ms-barriodigital-rabbitadmin/
+├── ms-barriodigital-kafkaadmin/
 ├── ms-barriodigital-report/      (perfil kafka)
 └── ms-barriodigital-audit/       (perfil kafka)
 ```
@@ -179,6 +180,7 @@ Debe responder **401** (sin token). El 401 lo devuelve el JWT Authorizer del API
 | report *(perfil kafka)* | ec2-apps | 8084 | No |
 | audit *(perfil kafka)* | ec2-apps | 8085 | No |
 | rabbitadmin | ec2-apps | 8086 | Solo `127.0.0.1` del host; el acceso real es por el BFF (`/api/rabbit`) |
+| kafkaadmin | ec2-apps | 8087 | Solo `127.0.0.1` del host; el acceso real es por el BFF (`/api/kafka`, rol Admin) |
 | Oracle (`oracle-db`) | ec2-apps | 1521 | No (red interna; servicio `FREEPDB1`) |
 | RabbitMQ nodo 1: AMQP / consola web | ec2-mq | 5672 / 15672 | AMQP solo desde el *security group* de ec2-apps; consola solo desde la IP del administrador |
 | RabbitMQ nodo 2: AMQP / consola web | ec2-mq | 5673 / 15673 | Igual que el nodo 1 |
@@ -200,6 +202,7 @@ Todas se definen en el `.env` de la instancia correspondiente. `docker compose` 
 | `RABBITMQ_PORT` | No (5672) | notify, rabbitadmin | Puerto AMQP |
 | `RABBITMQ_USER` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_USER` de `mq/.env` |
 | `RABBITMQ_PASSWORD` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_PASS` de `mq/.env` |
+| `KAFKA_HOST` | Sí | kafkaadmin | IP privada de ec2-kafka (la `KAFKA_HOST_IP` de `kafka/.env`); con ella se arma `<ip>:9092,<ip>:9093,<ip>:9094` |
 | `MAIL_ENABLED` | No (`false`) | notify | `true` envía correos reales por SMTP; `false` solo los simula en el log |
 | `MAIL_USERNAME` | Si `MAIL_ENABLED=true` | notify | Cuenta que envía (usuario SMTP) |
 | `MAIL_PASSWORD` | Si `MAIL_ENABLED=true` | notify | Clave de aplicación de esa cuenta (no la clave normal) |
