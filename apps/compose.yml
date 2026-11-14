@@ -14,6 +14,10 @@ x-entorno-rabbit: &entorno-rabbit
   RABBITMQ_USER: ${RABBITMQ_USER:?Falta RABBITMQ_USER en apps/.env}
   RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Falta RABBITMQ_PASSWORD en apps/.env}
 
+x-entorno-kafka: &entorno-kafka
+  # ec2-kafka: los tres brokers escuchan en la misma IP privada, uno por puerto (9092, 9093, 9094)
+  KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_HOST:?Falta KAFKA_HOST en apps/.env}:9092,${KAFKA_HOST}:9093,${KAFKA_HOST}:9094
+
 x-servicio-java: &servicio-java
   restart: unless-stopped
   networks:
@@ -64,6 +68,7 @@ services:
       REPORT_SERVICE_URL: http://ms-barriodigital-report:8084
       AUDIT_SERVICE_URL: http://ms-barriodigital-audit:8085
       RABBITADMIN_SERVICE_URL: http://ms-barriodigital-rabbitadmin:8086
+      KAFKAADMIN_SERVICE_URL: http://ms-barriodigital-kafkaadmin:8087
 
   ms-barriodigital-requests:
     <<: *servicio-java
@@ -122,6 +127,22 @@ services:
       RABBITMQ_MGMT_URL: http://${RABBITMQ_HOST:?Falta RABBITMQ_HOST en apps/.env}:15672
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8086/actuator/health/liveness"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  ms-barriodigital-kafkaadmin:
+    <<: *servicio-java
+    build: ../../ms-barriodigital-kafkaadmin
+    container_name: ms-barriodigital-kafkaadmin
+    ports:
+      - "127.0.0.1:8087:8087"   # solo desde este host, para probar con curl; el acceso real es por el BFF
+    environment:
+      <<: [*entorno-jwt, *entorno-kafka]
+      SERVER_PORT: "8087"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8087/actuator/health/liveness"]
       interval: 15s
       timeout: 5s
       retries: 5
