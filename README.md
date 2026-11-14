@@ -17,7 +17,7 @@ El sistema son microservicios Java (Spring Boot) detrás de un BFF, con autentic
 | `docs/matriz-funcionalidades.md` | Matriz de funcionalidades: estado, componente y evidencia de cada una |
 | `docs/guion-presentacion.md` | Guion de la presentación EP4: orden, comandos y preguntas probables |
 | `docs/despliegue-automatico.md`, `.github/workflows/` | Despliegue automático a `ec2-apps` con GitHub Actions (tests + SSH + `docker compose up`) |
-| `kafka/compose.yml` | Clúster Kafka (pendiente: aún no forma parte del sistema desplegado) |
+| `kafka/compose.yml` | Clúster Kafka (3 Zookeeper, 3 brokers y Kafka UI; se despliega en **ec2-kafka**, ver `kafka/README.md`) |
 
 Los servicios se construyen desde sus propios repositorios, que deben estar clonados **junto a este** (`../../ms-barriodigital-*` desde `apps/`):
 
