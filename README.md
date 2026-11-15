@@ -30,8 +30,8 @@ Los servicios se construyen desde sus propios repositorios, que deben estar clon
 ├── ms-barriodigital-notify/
 ├── ms-barriodigital-rabbitadmin/
 ├── ms-barriodigital-kafkaadmin/
-├── ms-barriodigital-report/      (perfil kafka)
-└── ms-barriodigital-audit/       (perfil kafka)
+├── ms-barriodigital-report/
+└── ms-barriodigital-audit/
 ```
 
 ## Arquitectura
@@ -53,9 +53,13 @@ flowchart TB
         cat["catalog :8082"]
         notify["notify :8083<br/>CONSUMIDOR"]
         radm["rabbitadmin :8086<br/>único que publica en RabbitMQ"]
-        rep["report :8084<br/>(perfil kafka)"]
-        aud["audit :8085<br/>(perfil kafka)"]
+        rep["report :8084<br/>CONSUMIDOR Kafka"]
+        aud["audit :8085<br/>CONSUMIDOR Kafka"]
         ora[("Oracle Free<br/>:1521 FREEPDB1")]
+    end
+
+    subgraph ec2kafka["ec2-kafka (IP privada 172.31.28.221)"]
+        kfk{{"Kafka<br/>3 brokers + 3 Zookeeper"}}
     end
 
     subgraph ec2mq["ec2-mq (IP privada 172.31.16.143)"]
@@ -68,6 +72,9 @@ flowchart TB
     bff --> radm
     bff --> rep
     bff --> aud
+    req -- "requests.events / audit.timeline" --> kfk
+    kfk -- "requests.events" --> rep
+    kfk -- "requests.events + audit.timeline" --> aud
     req -- "consulta cupos" --> cat
     req --> ora
     cat --> ora
@@ -177,8 +184,8 @@ Debe responder **401** (sin token). El 401 lo devuelve el JWT Authorizer del API
 | requests | ec2-apps | 8081 | No (red interna) |
 | catalog | ec2-apps | 8082 | No (red interna) |
 | notify | ec2-apps | 8083 | No (red interna; healthcheck interno) |
-| report *(perfil kafka)* | ec2-apps | 8084 | No |
-| audit *(perfil kafka)* | ec2-apps | 8085 | No |
+| report | ec2-apps | 8084 | No |
+| audit | ec2-apps | 8085 | No |
 | rabbitadmin | ec2-apps | 8086 | Solo `127.0.0.1` del host; el acceso real es por el BFF (`/api/rabbit`) |
 | kafkaadmin | ec2-apps | 8087 | Solo `127.0.0.1` del host; el acceso real es por el BFF (`/api/kafka`, rol Admin) |
 | Oracle (`oracle-db`) | ec2-apps | 1521 | No (red interna; servicio `FREEPDB1`) |
@@ -202,7 +209,7 @@ Todas se definen en el `.env` de la instancia correspondiente. `docker compose` 
 | `RABBITMQ_PORT` | No (5672) | notify, rabbitadmin | Puerto AMQP |
 | `RABBITMQ_USER` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_USER` de `mq/.env` |
 | `RABBITMQ_PASSWORD` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_PASS` de `mq/.env` |
-| `KAFKA_HOST` | Sí | kafkaadmin, requests | IP privada de ec2-kafka (la `KAFKA_HOST_IP` de `kafka/.env`); con ella se arma `<ip>:9092,<ip>:9093,<ip>:9094` |
+| `KAFKA_HOST` | Sí | kafkaadmin, requests, report, audit | IP privada de ec2-kafka (la `KAFKA_HOST_IP` de `kafka/.env`); con ella se arma `<ip>:9092,<ip>:9093,<ip>:9094` |
 | `MAIL_ENABLED` | No (`false`) | notify | `true` envía correos reales por SMTP; `false` solo los simula en el log |
 | `MAIL_USERNAME` | Si `MAIL_ENABLED=true` | notify | Cuenta que envía (usuario SMTP) |
 | `MAIL_PASSWORD` | Si `MAIL_ENABLED=true` | notify | Clave de aplicación de esa cuenta (no la clave normal) |
@@ -274,6 +281,25 @@ docker logs -f ms-barriodigital-notify | grep -E "Correo enviado|duplicado|Reint
 - Entra con el usuario y la clave de `mq/.env`. En la pestaña **Queues** se ven las seis colas, sus consumidores y los mensajes que llegan a las colas `*.dlq`.
 - Si no abre, revisa que tu IP actual esté en la regla del puerto 15672 del *security group* `ec2-mq-rabbitmq` y que la IP pública sea la actual (cambia en cada reinicio).
 
-## Kafka (pendiente)
+## Kafka (streaming)
 
-`report` y `audit` pertenecen al perfil `kafka` de `apps/compose.yml` y no arrancan por defecto. Se activarán con `docker compose --profile kafka up -d` cuando exista el broker y se agreguen sus variables de conexión.
+El clúster vive en **ec2-kafka** (ver `kafka/README.md`). RabbitMQ sigue llevando las **órdenes** (enviar un correo, crear un ticket para la cuadrilla); Kafka lleva los **hechos** para análisis en tiempo real.
+
+| Tópico | Lo publica | Contenido | Lo consumen |
+|---|---|---|---|
+| `requests.events` | requests (clave = id del trámite) | Qué pasó con el trámite: tipo, estado anterior y nuevo. Sin datos personales del vecino | report (métricas por tipo de trámite), audit |
+| `audit.timeline` | requests (clave = id del trámite) | Quién cambió el estado, el motivo y la cuadrilla asignada | audit |
+
+- La publicación ocurre después del commit y nunca hace fallar el trámite: si Kafka no responde, se registra el error en el log de `requests`.
+- `report` cuenta por tipo de trámite: total = ingresados, éxito = `RESUELTO`, fallidos = `RECHAZADO`. Cada evento se cuenta una sola vez (por `eventId`).
+- `audit` guarda cada mensaje una sola vez (tópico + partición + offset).
+- Ambos consumidores reintentan 3 veces ante un fallo de base de datos y luego siguen con el mensaje siguiente.
+- `kafkaadmin` crea los dos tópicos al arrancar (3 particiones, 3 réplicas) y los administra por `/api/kafka` (rol Admin).
+
+Verificación rápida:
+
+```bash
+docker logs --since 5m ms-barriodigital-requests 2>&1 | grep "Evento en Kafka"      # publicación
+docker logs --since 5m ms-barriodigital-report 2>&1 | grep "Métricas actualizadas"   # consumo en report
+docker logs --since 5m ms-barriodigital-audit 2>&1 | grep "auditado"                 # consumo en audit
+```

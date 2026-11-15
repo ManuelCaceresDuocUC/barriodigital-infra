@@ -169,11 +169,10 @@ services:
   # Pendiente: agregar las variables de conexión a Kafka al desplegarlo.
   ms-barriodigital-report:
     <<: *servicio-java
-    profiles: ["kafka"]
     build: ../../ms-barriodigital-report
     container_name: ms-barriodigital-report
     environment:
-      <<: [*entorno-jwt, *entorno-db]
+      <<: [*entorno-jwt, *entorno-db, *entorno-kafka]
       SERVER_PORT: "8084"
     depends_on:
       oracle-db:
@@ -181,11 +180,10 @@ services:
 
   ms-barriodigital-audit:
     <<: *servicio-java
-    profiles: ["kafka"]
     build: ../../ms-barriodigital-audit
     container_name: ms-barriodigital-audit
     environment:
-      <<: [*entorno-jwt, *entorno-db]
+      <<: [*entorno-jwt, *entorno-db, *entorno-kafka]
       SERVER_PORT: "8085"
     depends_on:
       oracle-db:
