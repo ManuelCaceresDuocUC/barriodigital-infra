@@ -202,7 +202,7 @@ Todas se definen en el `.env` de la instancia correspondiente. `docker compose` 
 | `RABBITMQ_PORT` | No (5672) | notify, rabbitadmin | Puerto AMQP |
 | `RABBITMQ_USER` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_USER` de `mq/.env` |
 | `RABBITMQ_PASSWORD` | Sí | notify, rabbitadmin | Debe ser igual a `RABBITMQ_DEFAULT_PASS` de `mq/.env` |
-| `KAFKA_HOST` | Sí | kafkaadmin | IP privada de ec2-kafka (la `KAFKA_HOST_IP` de `kafka/.env`); con ella se arma `<ip>:9092,<ip>:9093,<ip>:9094` |
+| `KAFKA_HOST` | Sí | kafkaadmin, requests | IP privada de ec2-kafka (la `KAFKA_HOST_IP` de `kafka/.env`); con ella se arma `<ip>:9092,<ip>:9093,<ip>:9094` |
 | `MAIL_ENABLED` | No (`false`) | notify | `true` envía correos reales por SMTP; `false` solo los simula en el log |
 | `MAIL_USERNAME` | Si `MAIL_ENABLED=true` | notify | Cuenta que envía (usuario SMTP) |
 | `MAIL_PASSWORD` | Si `MAIL_ENABLED=true` | notify | Clave de aplicación de esa cuenta (no la clave normal) |
