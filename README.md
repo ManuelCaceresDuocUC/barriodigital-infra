@@ -15,7 +15,8 @@ El sistema son microservicios Java (Spring Boot) detrás de un BFF, con autentic
 | `mq/.env.example` | Plantilla de variables de entorno de `ec2-mq` |
 | `mq/README.md`, `docs/ec2-mq.md` | Detalle del clúster RabbitMQ y de la instancia que lo aloja |
 | `docs/matriz-funcionalidades.md` | Matriz de funcionalidades: estado, componente y evidencia de cada una |
-| `docs/guion-presentacion.md` | Guion de la presentación EP4: orden, comandos y preguntas probables |
+| `docs/guion-presentacion.md` | Guion de la presentación (EP4 y EP5/EP6): orden, comandos y preguntas probables |
+| `docs/guia-estudio-kafka.md` | Guía de estudio de Kafka para la presentación individual |
 | `docs/despliegue-automatico.md`, `.github/workflows/` | Despliegue automático a `ec2-apps` con GitHub Actions (tests + SSH + `docker compose up`) |
 | `kafka/compose.yml` | Clúster Kafka (3 Zookeeper, 3 brokers y Kafka UI; se despliega en **ec2-kafka**, ver `kafka/README.md`) |
 

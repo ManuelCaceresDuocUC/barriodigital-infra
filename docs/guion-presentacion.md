@@ -1,13 +1,13 @@
-# Guion de la presentación EP4 (5 a 10 minutos)
+# Guion de la presentación (EP4 y EP5/EP6) (5 a 10 minutos)
 
-Hilo conductor: **una petición de un vecino recorre el sistema de punta a punta.** Primero se identifica (IDaaS y OAuth 2.0 / OIDC), después entra por la puerta única (API Manager) con un JWT que se valida, llega al backend desplegado en la nube y, por último, los efectos secundarios (correo, ticket de cuadrilla, certificado) viajan por RabbitMQ sin bloquear al usuario.
+Hilo conductor: **una petición de un vecino recorre el sistema de punta a punta.** Primero se identifica (IDaaS y OAuth 2.0 / OIDC), después entra por la puerta única (API Manager) con un JWT que se valida, llega al backend desplegado en la nube los efectos secundarios (correo, ticket de cuadrilla, certificado) viajan por RabbitMQ sin bloquear al usuario y, por último, el hecho «la solicitud cambió de estado» se publica en Kafka, donde `report` calcula KPIs y `audit` registra la trazabilidad.
 
 Dirección del frontend: `https://barriodigitalcloud.duckdns.org`
 API Gateway: `https://lkbz5es695.execute-api.us-east-1.amazonaws.com`
 
 ## 1. Orden y tiempos
 
-La pauta de EP4 calcula el logro de la matriz sobre lo que se **demuestra en funcionamiento**, así que cada fila de [matriz-funcionalidades.md](matriz-funcionalidades.md) (M01 a M16) se muestra en algún paso. Varias salen de un mismo recorrido: crear una solicitud muestra login, roles, solicitudes, cupo y cola a la vez.
+La pauta de EP4 calcula el logro de la matriz sobre lo que se **demuestra en funcionamiento**, así que cada fila de [matriz-funcionalidades.md](matriz-funcionalidades.md) (M01 a M22) se muestra en algún paso. Varias salen de un mismo recorrido: crear una solicitud muestra login, roles, solicitudes, cupo y cola a la vez.
 
 | # | Tiempo | Qué se muestra | Matriz | Punto de la pauta |
 |---|--------|----------------|--------|-------------------|
@@ -20,10 +20,13 @@ La pauta de EP4 calcula el logro de la matriz sobre lo que se **demuestra en fun
 | 6 | 5:40–6:40 | SSH a ec2-mq: `docker compose ps` y `cluster_status`. Management UI: los dos nodos, los exchanges `cmd.direct` (direct), `cmd.topic` (topic) y `cmd.dead.dlx`, y las seis colas con la política `ha-cmd`. | M14 | Compose de RabbitMQ; dos nodos en clúster; exchanges direct y topic |
 | 7 | 6:40–7:40 | Recorrido del mensaje en tres logs: `requests` ("Evento publicado"), `rabbitadmin` ("Mensaje publicado" en `cmd.direct`) y `notify` (consumo y ACK); el correo llegó a la bandeja. | M10, M11 | Colas funcionando |
 | 8 | 7:40–8:40 | Publicar un mensaje inválido desde la Management UI y mostrar 1 mensaje en `q.cmd.crew.dlq` con su cabecera `x-death`; mostrar el registro en los logs de notify. | M13 | Tres colas con sus DLQ funcionando |
-| 9 | 8:40–9:30 | PowerShell con token de Admin: crear y eliminar una cola de prueba por el microservicio administrador (a través del BFF). | M15 | Administrador de RabbitMQ |
-| 10 | 9:30–9:50 | Cierre: matriz de funcionalidades (16 funcionalidades, 15 demostradas; el PDF del certificado está declarado como parcial). | — | Sistematización |
+| 9 | 8:40–9:10 | PowerShell con token de Admin: crear y eliminar una cola de prueba por el microservicio administrador (a través del BFF). | M15 | Administrador de RabbitMQ |
+| 10 | 9:10–10:10 | **Kafka UI** (`http://<IP-PÚBLICA-EC2-KAFKA>:8088`): 3 brokers en línea; tópicos `requests.events` y `audit.timeline` con 3 particiones y 3 réplicas; abrir *Messages* y ver el evento del paso 4 (clave = `requestId`). | M17 | Clúster Kafka y tópicos |
+| 11 | 10:10–10:50 | PowerShell con token de Admin: `GET /api/kafka/topics` y `/api/kafka/cluster` a través del BFF. Terminal: logs de `requests` («Evento en Kafka»). | M18, M19 | Administrador de Kafka y productor |
+| 12 | 10:50–11:40 | Como `admin.test`: pantalla **Reportería**; cambiar el estado de una solicitud y ver subir los KPIs. Como Auditor: pantalla **Auditoría** con el evento (resumen legible y JSON). En Kafka UI → Consumers: grupos `ms-report-consumer-group-v2` y de audit con lag 0. | M20, M21, M22 | Consumidores y pantallas |
+| 13 | 11:40–12:00 | Cierre: matriz de funcionalidades (22 funcionalidades, 21 demostradas; el PDF del certificado está declarado como parcial). | — | Sistematización |
 
-Total estimado: unos 9 minutos y 50 segundos. Está justo en el límite de 10 minutos: si hace falta ganar tiempo, acorta el paso 0 y el 5.
+Total estimado: unos 12 minutos si se muestra todo. EP4 (RabbitMQ, pasos 0 a 9, cierre en 9:50) cabe en 10 minutos; para EP5/EP6 con Kafka, **acorta los pasos 0, 1, 5 y 6** (se pueden resumir en una frase) o muestra solo los pasos 4, 7, 10, 11 y 12 como hilo del recorrido de una solicitud.
 
 ## 2. Lista de pre-chequeo (30 minutos antes)
 
@@ -33,12 +36,16 @@ Total estimado: unos 9 minutos y 50 segundos. Está justo en el límite de 10 mi
 - [ ] La IP pública de ec2-mq cambió al reiniciar: anotar la nueva y confirmar que el Security Group deja entrar **tu IP actual** al puerto 15672.
 - [ ] ec2-apps conserva su Elastic IP; el dominio DuckDNS apunta a ella (`nslookup barriodigitalcloud.duckdns.org`).
 - [ ] `docker compose logs --tail 20 ms-barriodigital-notify` sin errores y con los listeners iniciados.
+- [ ] ec2-kafka encendida **antes** que ec2-apps (3 Zookeeper + 3 brokers + Kafka UI `Up`/`healthy`): `docker compose ps` en `~/barriodigital/barriodigital-infra/kafka`. Anotar su IP pública y permitir tu IP en el puerto 8088.
+- [ ] Disco de ec2-apps con holgura (`df -h /`); si está al 100 % el health de los servicios queda DOWN: `docker system prune -af`.
+- [ ] `docker compose logs --tail 20 ms-barriodigital-report ms-barriodigital-audit` con «partitions assigned».
 
 **Sesiones abiertas (dejar las pestañas listas)**
 - [ ] Consola de AWS: API Gateway (`BarrioDigital-API`) y EC2.
 - [ ] Portal de Azure: Entra ID → Users y App registrations.
 - [ ] Frontend: `https://barriodigitalcloud.duckdns.org` con sesión **cerrada** para mostrar el login en vivo.
 - [ ] Management UI: `http://<IP-PÚBLICA-EC2-MQ>:15672`, ya autenticada.
+- [ ] Kafka UI: `http://<IP-PÚBLICA-EC2-KAFKA>:8088` abierta en Topics y en Consumers.
 - [ ] Dos terminales: PowerShell (pruebas con `curl.exe`) y SSH a ec2-apps.
 - [ ] Un visor de tokens (por ejemplo `https://jwt.ms`) abierto en otra pestaña.
 
@@ -143,6 +150,29 @@ curl.exe -i -X DELETE "$API/api/rabbit/queues/q.demo.eval" -H "Authorization: Be
 
 Qué decir: solo el rol Admin puede usarlo (con otro rol responde 403) y las colas `q.cmd.*` y los exchanges `cmd.*` están protegidos (responden 409); por eso la demo usa una cola propia. Más ejemplos en `docs/rabbitadmin.http` del repositorio `ms-barriodigital-rabbitadmin`.
 
+### Pasos 10 a 12: Kafka
+
+```bash
+# ec2-kafka
+cd ~/barriodigital/barriodigital-infra/kafka
+docker compose ps
+
+# ec2-apps: el recorrido del evento
+cd ~/barriodigital/barriodigital-infra/apps
+docker compose logs --tail 10 ms-barriodigital-requests | grep "Evento en Kafka"
+docker compose logs --tail 10 ms-barriodigital-report | grep "Métricas actualizadas"
+docker compose logs --tail 10 ms-barriodigital-audit | grep "auditado"
+```
+
+```powershell
+curl.exe -s "$API/api/kafka/topics" -H "Authorization: Bearer $TOKEN"
+curl.exe -s "$API/api/kafka/cluster" -H "Authorization: Bearer $TOKEN"
+curl.exe -s "$API/api/kafka/groups" -H "Authorization: Bearer $TOKEN"
+curl.exe -s "$API/api/report/kpis" -H "Authorization: Bearer $TOKEN"
+```
+
+Qué decir: `requests` publica el hecho después de confirmar la transacción y sin bloquear al usuario; si Kafka no responde, solo se registra en el log. `report` y `audit` son grupos de consumidores distintos, cada uno con su propio offset, por eso ambos reciben el mismo evento. Los tópicos del sistema están protegidos: no se pueden borrar desde el administrador.
+
 ## 4. Preguntas probables del docente
 
 **¿Por qué colas y no llamadas síncronas entre servicios?**
@@ -175,6 +205,24 @@ Todas las rutas `/api/rabbit/**` exigen rol Admin y llegan por el BFF (401 sin t
 **¿Dónde están los ACK y dónde se separa la lógica de negocio de Rabbit?**
 En `notify`, la clase `AckHandler` concentra `basicAck` y `basicNack`; los listeners por dominio (`email`, `crew`, `certificate`) solo delegan en servicios de negocio (`EmailService`, `CrewTicketService`, …) que no conocen RabbitMQ. En `requests`, la publicación está detrás de `MessageGateway`, y solo `rabbitadmin` usa `RabbitTemplate` y `AmqpAdmin`.
 
+**¿Por qué Kafka si ya hay RabbitMQ?**
+Resuelven problemas distintos. RabbitMQ entrega **comandos** a un consumidor que los ejecuta y el mensaje desaparece al confirmarlo. Kafka guarda **hechos** en un log replicado que varios servicios leen de forma independiente y que se puede releer. Reportería y auditoría necesitan justo eso: dos servicios distintos leyendo el mismo evento, y la posibilidad de reconstruir métricas o historial desde cero.
+
+**¿Qué garantías de entrega hay?**
+El productor es idempotente con `acks=all` y el tópico tiene factor de replicación 3 y mínimo 2 réplicas sincronizadas: un evento confirmado sobrevive a la caída de un broker. Los consumidores tienen *at-least-once* (reintentos 3 veces con 1 s de espera) y lo compensan con idempotencia: `report` descarta eventos ya vistos por `eventId` y `audit` tiene una restricción única por tópico, partición y offset.
+
+**¿Qué pasa si Kafka está caído cuando se cambia una solicitud?**
+La solicitud se guarda igual: el evento se publica después del commit y de forma asíncrona, con un tiempo máximo de espera de 2 s. El fallo queda en el log. Limitación honesta: ese evento se pierde para reportería y auditoría; la solución es el patrón outbox (guardar el evento en Oracle en la misma transacción), igual que con RabbitMQ.
+
+**¿Para qué sirven las particiones y por qué la clave es `requestId`?**
+Las particiones reparten la carga y dan paralelismo (hasta 3 consumidores por grupo). Con la clave `requestId`, todos los eventos de una misma solicitud caen en la misma partición y se leen en orden.
+
+**¿Por qué los eventos no llevan datos personales?**
+`requests.events` solo trae identificadores, tipo de trámite y estados: alcanza para métricas y no expone datos del vecino. `audit.timeline` agrega quién hizo el cambio (actor y rol), el motivo y la cuadrilla, porque eso es lo que se audita.
+
+**¿Quién puede ver Reportería y Auditoría?**
+Reportería solo Admin; Auditoría Auditor y Admin (el microservicio `audit` también restringe por rol). Limitación honesta: `report` no valida el rol en el backend; solo el frontend y el BFF (autenticación).
+
 **¿Cómo se despliega el sistema?**
 Con GitHub Actions: al fusionar en `main`, el workflow ejecuta los tests y, si pasan, entra por SSH a ec2-apps, hace `git pull` y `docker compose up -d --build` del servicio, y verifica que quede `running`/`healthy`. El detalle está en `docs/despliegue-automatico.md`.
 
@@ -187,4 +235,6 @@ Con GitHub Actions: al fusionar en `main`, el workflow ejecuta los tests y, si p
 | El frontend no carga | `docker compose ps` en ec2-apps; revisar que `frontend-barriodigital` esté `Up`. |
 | El login de Microsoft da error de redirect | Falta la URI en Azure (SPA): `https://barriodigitalcloud.duckdns.org/dashboard`. |
 | No llega el correo | Mostrar igualmente el consumo y el ACK en los logs de notify; el envío real depende de `MAIL_ENABLED` y de las credenciales SMTP. |
-| Las pantallas de Auditoría o Reportes fallan | Dependen de Kafka (pendiente): no abrirlas en la demo. |
+| Las pantallas de Auditoría o Reportes salen vacías o con error | Revisar que ec2-kafka esté `Up` y `docker compose ps` en ec2-apps (report y audit `healthy`). Si `df -h /` está al 100 %, `docker system prune -af`. |
+| Kafka UI no abre | La IP pública de ec2-kafka cambió o tu IP no está en el Security Group (puerto 8088). |
+| Los KPIs no suben | Cambiar el estado de una solicitud de nuevo y mostrar el log de `requests` («Evento en Kafka») y el *lag* del grupo en Kafka UI. |
